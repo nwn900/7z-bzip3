@@ -452,7 +452,8 @@ static HRESULT Compress(
 
     // if (arcInfo.Flags_KeepName()) noTimestampExpected = true;
     if (arcInfo.Is_Xz() ||
-        arcInfo.Is_BZip2())
+        arcInfo.Is_BZip2() ||
+        arcInfo.Is_BZip3())
     {
       /* 7-zip before 22.00 returns NFileTimeType::kUnix for xz and bzip2,
          but we want to set timestamp without reduction to unix. */

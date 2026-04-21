@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?ifndef Version?>
+  <?define Version = "26.0.1" ?>
+<?endif?>
+
+<?ifndef StageDir?>
+  <?define StageDir = "." ?>
+<?endif?>
+
+<?define ProductName = "7-Zip BZip3" ?>
+<?define Manufacturer = "7-Zip BZip3 Contributors" ?>
+<?define ShellExtId = "{23170F69-40C1-278A-1000-000100020000}" ?>
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product
+      Id="*"
+      Name="$(var.ProductName)"
+      Language="1033"
+      Version="$(var.Version)"
+      Manufacturer="$(var.Manufacturer)"
+      UpgradeCode="{A68A73BE-90B6-45D5-B478-6955BE59F8FB}">
+
+    <Package
+        InstallerVersion="500"
+        Compressed="yes"
+        InstallScope="perMachine"
+        Platform="x64" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of 7-Zip BZip3 is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Property Id="MSIRMSHUTDOWN" Value="2" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/nwn900/7z-bzip3" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/nwn900/7z-bzip3/issues" />
+    <Property Id="ARPCOMMENTS" Value="7-Zip fork with integrated BZip3 support." />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="7-Zip BZip3">
+
+          <Component Id="CoreFiles" Guid="{666B9037-B650-4228-BB24-63528B8F18D8}" Win64="yes">
+            <File Id="File7zFM" Source="$(var.StageDir)\7zFM.exe" KeyPath="yes">
+              <Shortcut
+                  Id="StartMenuShortcut"
+                  Directory="ProgramMenuDir"
+                  Name="7-Zip BZip3 File Manager"
+                  WorkingDirectory="INSTALLDIR" />
+            </File>
+            <File Id="File7zG" Source="$(var.StageDir)\7zG.exe" />
+            <File Id="File7zExe" Source="$(var.StageDir)\7z.exe" />
+            <File Id="File7zDll" Source="$(var.StageDir)\7z.dll" />
+            <File Id="File7zSfx" Source="$(var.StageDir)\7z.sfx" />
+            <File Id="File7zConSfx" Source="$(var.StageDir)\7zCon.sfx" />
+            <File Id="FileReadme" Source="$(var.StageDir)\README.md" />
+            <File Id="FileLicense7z" Source="$(var.StageDir)\7zip-LICENSE.txt" />
+            <File Id="FileLicenseBZip3" Source="$(var.StageDir)\BZip3-LICENSE.txt" />
+            <RemoveFolder Id="RemoveProgramMenuDir" Directory="ProgramMenuDir" On="uninstall" />
+          </Component>
+
+          <Component Id="ShellExt64" Guid="{B99BC8D3-EA7D-4B60-BD8A-EC0F94FBE69F}" Win64="yes">
+            <File Id="FileShellExt64" Source="$(var.StageDir)\7-zip.dll" KeyPath="yes" />
+            <RegistryValue Root="HKCR" Key="CLSID\$(var.ShellExtId)\InprocServer32" Type="string" Value="[INSTALLDIR]7-zip.dll" />
+            <RegistryValue Root="HKCR" Key="CLSID\$(var.ShellExtId)\InprocServer32" Name="ThreadingModel" Type="string" Value="Apartment" />
+          </Component>
+
+          <Component Id="ShellExt32" Guid="{E3989697-DFA6-4808-90FA-E61CF78A6A14}" Win64="no">
+            <File Id="FileShellExt32" Source="$(var.StageDir)\7-zip32.dll" KeyPath="yes" />
+            <RegistryValue Root="HKCR" Key="CLSID\$(var.ShellExtId)\InprocServer32" Type="string" Value="[INSTALLDIR]7-zip32.dll" />
+            <RegistryValue Root="HKCR" Key="CLSID\$(var.ShellExtId)\InprocServer32" Name="ThreadingModel" Type="string" Value="Apartment" />
+          </Component>
+
+          <Component Id="Registration" Guid="{F5DCBE3A-66E9-40FB-B4BA-9FE061C61989}" Win64="yes">
+            <RegistryValue Root="HKLM" Key="Software\7-Zip" Name="Path" Type="string" Value="[INSTALLDIR]" KeyPath="yes" />
+            <RegistryValue Root="HKLM" Key="Software\7-Zip" Name="Path64" Type="string" Value="[INSTALLDIR]" />
+            <RegistryValue Root="HKCR" Key="*\shellex\ContextMenuHandlers\7-Zip" Type="string" Value="$(var.ShellExtId)" />
+            <RegistryValue Root="HKCR" Key="Directory\shellex\ContextMenuHandlers\7-Zip" Type="string" Value="$(var.ShellExtId)" />
+            <RegistryValue Root="HKCR" Key="Folder\shellex\ContextMenuHandlers\7-Zip" Type="string" Value="$(var.ShellExtId)" />
+            <RegistryValue Root="HKCR" Key="Directory\shellex\DragDropHandlers\7-Zip" Type="string" Value="$(var.ShellExtId)" />
+            <RegistryValue Root="HKCR" Key="Drive\shellex\DragDropHandlers\7-Zip" Type="string" Value="$(var.ShellExtId)" />
+            <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved" Name="$(var.ShellExtId)" Type="string" Value="7-Zip Shell Extension" />
+            <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\7zFM.exe" Type="string" Value="[INSTALLDIR]7zFM.exe" />
+            <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\7zFM.exe" Name="Path" Type="string" Value="[INSTALLDIR]" />
+          </Component>
+
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ProgramMenuDir" Name="7-Zip BZip3" />
+      </Directory>
+    </Directory>
+
+    <Feature Id="MainFeature" Title="$(var.ProductName)" Level="1">
+      <ComponentRef Id="CoreFiles" />
+      <ComponentRef Id="ShellExt64" />
+      <ComponentRef Id="ShellExt32" />
+      <ComponentRef Id="Registration" />
+    </Feature>
+  </Product>
+</Wix>

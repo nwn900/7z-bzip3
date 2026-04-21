@@ -128,6 +128,7 @@ enum EMethodID
   kLZMA2,
   kPPMd,
   kBZip2,
+  kBZip3,
   kDeflate,
   kDeflate64,
   kPPMdZip,
@@ -147,6 +148,7 @@ static LPCSTR const kMethodsNames[] =
   , "LZMA2"
   , "PPMd"
   , "BZip2"
+  , "BZip3"
   , "Deflate"
   , "Deflate64"
   , "PPMd"
@@ -197,6 +199,11 @@ static const EMethodID g_GZipMethods[] =
 static const EMethodID g_BZip2Methods[] =
 {
   kBZip2
+};
+
+static const EMethodID g_BZip3Methods[] =
+{
+  kBZip3
 };
 
 static const EMethodID g_XzMethods[] =
@@ -306,6 +313,12 @@ static const CFormatInfo g_Formats[] =
     (1 << 1) | (1 << 3) | (1 << 5) | (1 << 7) | (1 << 9),
     METHODS_PAIR(g_BZip2Methods),
     kFF_MultiThread | kFF_MemUse
+  },
+  {
+    "bzip3",
+    (1 << 1) | (1 << 3) | (1 << 5) | (1 << 7) | (1 << 9),
+    METHODS_PAIR(g_BZip3Methods),
+    kFF_MemUse
   },
   {
     "xz",
@@ -518,6 +531,11 @@ bool CCompressDialog::OnInit()
         m_Format.SetCurSel(index);
         Info.FormatIndex = (int)arcIndex;
       }
+    }
+    if (m_Format.GetCurSel() < 0 && m_Format.GetCount() > 0)
+    {
+      m_Format.SetCurSel(0);
+      Info.FormatIndex = (int)(unsigned)m_Format.GetItemData_of_CurSel();
     }
   }
 
@@ -2156,6 +2174,41 @@ void CCompressDialog::SetDictionary2()
       break;
     }
 
+    case kBZip3:
+    {
+      {
+             if (level >= 9) _auto_Dict = (64 << 20);
+        else if (level >= 7) _auto_Dict = (32 << 20);
+        else if (level >= 5) _auto_Dict = (16 << 20);
+        else if (level >= 3) _auto_Dict = (8 << 20);
+        else                 _auto_Dict = (4 << 20);
+      }
+
+      int curSel = AddDict2(k_Auto_Dict, _auto_Dict);
+      static const UInt32 kBZip3_Dicts[] =
+      {
+        1 << 20,
+        4 << 20,
+        8 << 20,
+        16 << 20,
+        32 << 20,
+        64 << 20,
+        128 << 20,
+        256 << 20,
+        511 << 20
+      };
+      for (unsigned i = 0; i < Z7_ARRAY_SIZE(kBZip3_Dicts); i++)
+      {
+        const UInt32 dict = kBZip3_Dicts[i];
+        const int index = AddDict(dict);
+        if (defaultDict != (UInt32)(Int32)-1)
+          if (dict <= defaultDict || curSel <= 0)
+            curSel = index;
+      }
+      m_Dictionary.SetCurSel(curSel);
+      break;
+    }
+
     case kCopy:
     {
       _auto_Dict = 0;
@@ -3055,6 +3108,13 @@ UInt64 CCompressDialog::GetMemoryUsage_Threads_Dict_DecompMem(UInt32 numThreads,
       decompressMemory = (7 << 20);
       UInt64 memForOneThread = (10 << 20);
       return size + memForOneThread * numThreads;
+    }
+
+    case kBZip3:
+    {
+      const UInt64 blockSize = dict64 == (UInt64)(Int64)-1 ? ((UInt64)16 << 20) : dict64;
+      decompressMemory = blockSize + (8 << 20);
+      return size + blockSize * 8 + (32 << 20);
     }
     
     case kPPMdZip:

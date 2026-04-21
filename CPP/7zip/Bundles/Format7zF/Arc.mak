@@ -64,6 +64,7 @@ AR_OBJS = \
   $O\ArHandler.obj \
   $O\ArjHandler.obj \
   $O\Base64Handler.obj \
+  $O\Bz3Handler.obj \
   $O\Bz2Handler.obj \
   $O\ComHandler.obj \
   $O\CpioHandler.obj \
@@ -271,6 +272,7 @@ C_OBJS = \
   $O\CpuArch.obj \
   $O\Delta.obj \
   $O\HuffEnc.obj \
+  $O\libbz3.obj \
   $O\LzFind.obj \
   $O\LzFindMt.obj \
   $O\Lzma2Dec.obj \

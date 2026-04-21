@@ -58,6 +58,7 @@ static const CContextMenuItem kMenuItems[] =
 
   { IDS_CONTEXT_COMPRESS, kCompress },
   { IDS_CONTEXT_COMPRESS_TO, kCompressTo7z },
+  { IDS_CONTEXT_COMPRESS_TO, kCompressToBz3 },
   { IDS_CONTEXT_COMPRESS_TO, kCompressToZip },
 
   #ifndef UNDER_CE
@@ -264,6 +265,9 @@ bool CMenuPage::OnInit()
           case kCompressTo7z:
           case kCompressTo7zEmail:
             s2 += (".7z");
+            break;
+          case kCompressToBz3:
+            s2 += (".bz3 / .tar.bz3");
             break;
           case kCompressToZip:
           case kCompressToZipEmail:

@@ -18,6 +18,8 @@ Igor Pavlov : Public domain */
 
 #if defined(_MSC_VER)
 
+#pragma warning(disable : 5031) // Windows SDK pragma push/pop noise under /Wall
+#pragma warning(disable : 5032) // Windows SDK pragma push/pop noise under /Wall
 #pragma warning(push)
 #pragma warning(disable : 4668) // '_WIN32_WINNT' is not defined as a preprocessor macro, replacing with '0' for '#if/#elif'
 

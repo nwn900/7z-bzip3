@@ -190,6 +190,7 @@ struct CArcInfoEx
   bool Is_Split() const { return Name.IsEqualTo_Ascii_NoCase("Split"); }
   bool Is_Xz()    const { return Name.IsEqualTo_Ascii_NoCase("xz"); }
   bool Is_BZip2() const { return Name.IsEqualTo_Ascii_NoCase("bzip2"); }
+  bool Is_BZip3() const { return Name.IsEqualTo_Ascii_NoCase("bzip3"); }
   bool Is_GZip()  const { return Name.IsEqualTo_Ascii_NoCase("gzip"); }
   bool Is_Tar()   const { return Name.IsEqualTo_Ascii_NoCase("tar"); }
   bool Is_Zip()   const { return Name.IsEqualTo_Ascii_NoCase("zip"); }

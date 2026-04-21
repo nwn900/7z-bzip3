@@ -310,7 +310,7 @@ void CInfo::Load()
   Formats.Clear();
 
   Level = 5;
-  ArcType = L"7z";
+  ArcType = L"bzip3";
   ShowPassword = false;
   EncryptHeaders = false;
 

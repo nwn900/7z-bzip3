@@ -279,6 +279,7 @@ static const CContextMenuCommand g_Commands[] =
   CMD_REC( kCompressEmail,      "CompressEmail",      IDS_CONTEXT_COMPRESS_EMAIL),
   CMD_REC( kCompressTo7z,       "CompressTo7z",       IDS_CONTEXT_COMPRESS_TO),
   CMD_REC( kCompressTo7zEmail,  "CompressTo7zEmail",  IDS_CONTEXT_COMPRESS_TO_EMAIL),
+  CMD_REC( kCompressToBz3,      "CompressToBz3",      IDS_CONTEXT_COMPRESS_TO),
   CMD_REC( kCompressToZip,      "CompressToZip",      IDS_CONTEXT_COMPRESS_TO),
   CMD_REC( kCompressToZipEmail, "CompressToZipEmail", IDS_CONTEXT_COMPRESS_TO_EMAIL)
 };
@@ -430,9 +431,12 @@ static void MyAddSubMenu(
 static const char * const kArcExts[] =
 {
     "7z"
+  , "bz3"
   , "bz2"
+  , "bzip3"
   , "gz"
   , "rar"
+  , "tbz3"
   , "zip"
 };
 
@@ -911,6 +915,19 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
     arcName_zip += ".zip";
     UString arcName_zip_Show = arcName_Show;
     arcName_zip_Show += ".zip";
+    const bool useSingleFileBz3 = (fileNames->Size() == 1 && !fi0.IsDir());
+    UString arcName_bz3 = arcName;
+    UString arcName_bz3_Show = arcName_Show;
+    if (useSingleFileBz3)
+    {
+      arcName_bz3 += ".bz3";
+      arcName_bz3_Show += ".bz3";
+    }
+    else
+    {
+      arcName_bz3 += ".tar.bz3";
+      arcName_bz3_Show += ".tar.bz3";
+    }
 
 
     // Compress
@@ -969,6 +986,24 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
       MyInsertMenu(popupMenu, subIndex++, currentCommandID++, s, bitmap);
     }
     #endif
+
+    // CompressToBz3
+    if (contextMenuFlags & NContextMenuFlags::kCompressToBz3 &&
+        !arcName_bz3.IsEqualTo_NoCase(fs2us(fi0.Name)))
+    {
+      CCommandMapItem cmi;
+      UString s;
+      if (_dropMode)
+        cmi.Folder = _dropPath;
+      else
+        cmi.Folder = fs2us(folderPrefix);
+      cmi.ArcName = arcName_bz3;
+      cmi.ArcType = useSingleFileBz3 ? "bzip3" : "tar.bzip3";
+      AddCommand(kCompressToBz3, s, cmi);
+      MyFormatNew_ReducedName(s, arcName_bz3_Show);
+      Set_UserString_in_LastCommand(s);
+      MyInsertMenu(popupMenu, subIndex++, currentCommandID++, s, bitmap);
+    }
 
     // CompressToZip
     if (contextMenuFlags & NContextMenuFlags::kCompressToZip &&
@@ -1298,6 +1333,7 @@ HRESULT CZipContextMenu::InvokeCommandCommon(const CCommandMapItem &cmi)
       case kCompressEmail:
       case kCompressTo7z:
       case kCompressTo7zEmail:
+      case kCompressToBz3:
       case kCompressToZip:
       case kCompressToZipEmail:
       {
@@ -1314,6 +1350,10 @@ HRESULT CZipContextMenu::InvokeCommandCommon(const CCommandMapItem &cmi)
           if (cmdID == kCompressTo7z ||
               cmdID == kCompressTo7zEmail)
             postfix = ".7z";
+          else if (cmdID == kCompressToBz3)
+            postfix = cmi.ArcType.IsEqualTo_Ascii_NoCase("bzip3") ?
+                ".bz3" :
+                ".tar.bz3";
           else if (
               cmdID == kCompressToZip ||
               cmdID == kCompressToZipEmail)

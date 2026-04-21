@@ -192,6 +192,42 @@ HRESULT CompressFiles(
     bool email, bool showDialog, bool waitFinish)
 {
   MY_TRY_BEGIN
+  if (arcType.IsEqualTo_Ascii_NoCase("tar.bzip3"))
+  {
+    #ifdef _WIN32
+    NFile::NDir::CTempDir tempDir;
+    if (!tempDir.Create(FTEXT("7zBz3")))
+      return E_FAIL;
+    FString tempTarPath = tempDir.GetPath();
+    tempTarPath += FTEXT("\\payload.tar");
+    const UString tempTar = fs2us(tempTarPath);
+    RINOK(CompressFiles(
+        UString(),
+        tempTar,
+        UString("tar"),
+        false, // addExtension
+        names,
+        false, // email
+        false, // showDialog
+        true   // waitFinish
+        ))
+    UStringVector tempNames;
+    tempNames.Add(tempTar);
+    return CompressFiles(
+        arcPathPrefix,
+        arcName,
+        UString("bzip3"),
+        false, // addExtension
+        tempNames,
+        false, // email
+        false, // showDialog
+        true   // waitFinish
+        );
+    #else
+    return E_NOTIMPL;
+    #endif
+  }
+
   UString params ('a');
   
   CFileMapping fileMapping;

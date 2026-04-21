@@ -1,0 +1,6 @@
+CPP/7zip/**/x64/
+CPP/7zip/UI/Explorer/x86/
+artifacts/
+dist/
+*.wixobj
+*.wixpdb
