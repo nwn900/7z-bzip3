@@ -79,7 +79,8 @@ static CFSTR const kMainDll =
 
 #ifdef _WIN32
 
-static LPCTSTR const kRegistryPath = TEXT("Software") TEXT(STRING_PATH_SEPARATOR) TEXT("7-zip");
+static LPCTSTR const kRegistryPath = TEXT("Software") TEXT(STRING_PATH_SEPARATOR) TEXT("7-Zip BZip3");
+static LPCTSTR const kRegistryPath_Legacy = TEXT("Software") TEXT(STRING_PATH_SEPARATOR) TEXT("7-zip");
 static LPCWSTR const kProgramPathValue = L"Path";
 static LPCWSTR const kProgramPath2Value = L"Path"
   #ifdef _WIN64
@@ -88,10 +89,10 @@ static LPCWSTR const kProgramPath2Value = L"Path"
   L"32";
   #endif
 
-static bool ReadPathFromRegistry(HKEY baseKey, LPCWSTR value, FString &path)
+static bool ReadPathFromRegistry2(HKEY baseKey, LPCTSTR keyPath, LPCWSTR value, FString &path)
 {
   NRegistry::CKey key;
-  if (key.Open(baseKey, kRegistryPath, KEY_READ) == ERROR_SUCCESS)
+  if (key.Open(baseKey, keyPath, KEY_READ) == ERROR_SUCCESS)
   {
     UString pathU;
     if (key.QueryValue(value, pathU) == ERROR_SUCCESS)
@@ -102,6 +103,12 @@ static bool ReadPathFromRegistry(HKEY baseKey, LPCWSTR value, FString &path)
     }
   }
   return false;
+}
+
+static bool ReadPathFromRegistry(HKEY baseKey, LPCWSTR value, FString &path)
+{
+  return ReadPathFromRegistry2(baseKey, kRegistryPath, value, path)
+      || ReadPathFromRegistry2(baseKey, kRegistryPath_Legacy, value, path);
 }
 
 #endif // _WIN32

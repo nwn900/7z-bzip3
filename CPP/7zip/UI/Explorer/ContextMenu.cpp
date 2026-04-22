@@ -1050,7 +1050,7 @@ Z7_COMWF_B CZipContextMenu::QueryContextMenu(HMENU hMenu, UINT indexMenu,
     CMenu menu;
     menu.Attach(hMenu);
     menuDestroyer.Disable();
-    MyAddSubMenu(_commandMap, kMainVerb, menu, indexMenu++, currentCommandID++, (UString)"7-Zip",
+    MyAddSubMenu(_commandMap, kMainVerb, menu, indexMenu++, currentCommandID++, (UString)"7-Zip BZip3",
         popupMenu, // popupMenu.Detach(),
         bitmap);
   }
@@ -1682,10 +1682,10 @@ Z7_COMWF_B CZipExplorerCommand::GetTitle(IShellItemArray *psiItemArray, LPWSTR *
   if (IsRoot)
   {
     LoadItems(psiItemArray);
-    name = "7-Zip"; //  "New"
+    name = "7-Zip BZip3"; //  "New"
   }
   else
-    name = "7-Zip item";
+    name = "7-Zip BZip3 item";
   
   if (!_commandMap_Cur.IsEmpty())
   {

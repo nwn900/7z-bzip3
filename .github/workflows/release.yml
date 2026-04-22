@@ -64,6 +64,103 @@ jobs:
         shell: powershell
         run: .\scripts\Smoke-Test.ps1 -PortableRoot (Join-Path $PWD 'artifacts\stage\7zip-bzip3-x64')
 
+      - name: Smoke test MSI install
+        shell: powershell
+        run: |
+          $msi = Get-ChildItem artifacts -Filter *.msi | Select-Object -First 1
+          if (-not $msi) {
+            throw 'MSI artifact not found.'
+          }
+
+          $log = Join-Path $PWD 'artifacts\msi-install.log'
+          $installArgs = @('/i', $msi.FullName, '/qn', '/norestart', '/l*v', $log)
+          $proc = Start-Process -FilePath msiexec.exe -ArgumentList $installArgs -Wait -PassThru
+          if ($proc.ExitCode -ne 0) {
+            throw "MSI install failed with exit code $($proc.ExitCode). See $log"
+          }
+
+          $installDir = Join-Path $env:ProgramFiles '7-Zip BZip3'
+          $exe = Join-Path $installDir '7z.exe'
+          $gui = Join-Path $installDir '7zFM.exe'
+
+          foreach ($path in @(
+            $exe,
+            $gui,
+            (Join-Path $installDir '7z.dll'),
+            (Join-Path $installDir '7-zip.dll'),
+            (Join-Path $installDir '7-zip32.dll')
+          )) {
+            if (-not (Test-Path -LiteralPath $path)) {
+              throw "Installed file missing: $path"
+            }
+          }
+
+          $appPathsText = & reg query 'HKLM\Software\Microsoft\Windows\CurrentVersion\App Paths\7zFM.exe'
+          if ($LASTEXITCODE -ne 0 -or $appPathsText -notmatch [regex]::Escape((Join-Path $installDir '7zFM.exe'))) {
+            throw 'App Paths registration missing or wrong.'
+          }
+
+          $shellExtText = & reg query 'HKCR\*\shellex\ContextMenuHandlers\7-Zip BZip3' /ve
+          if ($LASTEXITCODE -ne 0 -or $shellExtText -notmatch '\{4C6B8933-560A-437F-B358-C4B0FCA654EF\}') {
+            throw 'Context menu handler registration missing or wrong.'
+          }
+
+          $work = Join-Path $env:TEMP ('7zip-bzip3-msi-' + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+          try {
+            Push-Location $work
+            'alpha bravo charlie' | Set-Content -LiteralPath 'sample.txt' -Encoding ascii
+
+            & $exe i | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Installed 7z.exe i failed.'
+            }
+
+            & $exe a sample.bz3 sample.txt -tbzip3 -y | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Installed bzip3 archive creation failed.'
+            }
+
+            & $exe x sample.bz3 -oout-bz3 -y | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Installed bzip3 extraction failed.'
+            }
+
+            & $exe a sample.7z sample.txt -t7z -y | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Installed 7z archive creation failed.'
+            }
+
+            & $exe x sample.7z -oout-7z -y | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Installed 7z extraction failed.'
+            }
+
+            if ((Get-Content -LiteralPath 'out-bz3\sample' -Raw) -ne "alpha bravo charlie`r`n") {
+              throw 'Installed bzip3 extraction content mismatch.'
+            }
+
+            if ((Get-Content -LiteralPath 'out-7z\sample.txt' -Raw) -ne "alpha bravo charlie`r`n") {
+              throw 'Installed 7z extraction content mismatch.'
+            }
+          }
+          finally {
+            Pop-Location
+            Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          $p = Start-Process -FilePath $gui -PassThru
+          Start-Sleep -Seconds 2
+          if ($p.HasExited) {
+            throw 'Installed GUI exited too fast.'
+          }
+          Stop-Process -Id $p.Id -Force
+
+          & reg query 'HKLM\Software\7-Zip BZip3' /s | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Installed fork registry key missing.'
+          }
+
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:

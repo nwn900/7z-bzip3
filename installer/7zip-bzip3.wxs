@@ -10,7 +10,7 @@
 
 <?define ProductName = "7-Zip BZip3" ?>
 <?define Manufacturer = "7-Zip BZip3 Contributors" ?>
-<?define ShellExtId = "{23170F69-40C1-278A-1000-000100020000}" ?>
+<?define ShellExtId = "{4C6B8933-560A-437F-B358-C4B0FCA654EF}" ?>
 
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product
@@ -71,15 +71,18 @@
           </Component>
 
           <Component Id="Registration" Guid="{F5DCBE3A-66E9-40FB-B4BA-9FE061C61989}" Win64="yes">
-            <RegistryValue Root="HKLM" Key="Software\7-Zip" Name="Path" Type="string" Value="[INSTALLDIR]" KeyPath="yes" />
-            <RegistryValue Root="HKLM" Key="Software\7-Zip" Name="Path64" Type="string" Value="[INSTALLDIR]" />
-            <RegistryValue Root="HKCR" Key="*\shellex\ContextMenuHandlers\7-Zip" Type="string" Value="$(var.ShellExtId)" />
-            <RegistryValue Root="HKCR" Key="Directory\shellex\ContextMenuHandlers\7-Zip" Type="string" Value="$(var.ShellExtId)" />
-            <RegistryValue Root="HKCR" Key="Folder\shellex\ContextMenuHandlers\7-Zip" Type="string" Value="$(var.ShellExtId)" />
-            <RegistryValue Root="HKCR" Key="Directory\shellex\DragDropHandlers\7-Zip" Type="string" Value="$(var.ShellExtId)" />
-            <RegistryValue Root="HKCR" Key="Drive\shellex\DragDropHandlers\7-Zip" Type="string" Value="$(var.ShellExtId)" />
-            <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved" Name="$(var.ShellExtId)" Type="string" Value="7-Zip Shell Extension" />
-            <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\7zFM.exe" Type="string" Value="[INSTALLDIR]7zFM.exe" />
+            <RegistryValue Root="HKLM" Key="Software\7-Zip BZip3" Name="Path" Type="string" Value="[INSTALLDIR]" KeyPath="yes" />
+            <RegistryValue Root="HKLM" Key="Software\7-Zip BZip3" Name="Path64" Type="string" Value="[INSTALLDIR]" />
+            <RegistryValue Root="HKCR" Key="*\shellex\ContextMenuHandlers\7-Zip BZip3" Type="string" Value="$(var.ShellExtId)" />
+            <RegistryValue Root="HKCR" Key="Directory\shellex\ContextMenuHandlers\7-Zip BZip3" Type="string" Value="$(var.ShellExtId)" />
+            <RegistryValue Root="HKCR" Key="Folder\shellex\ContextMenuHandlers\7-Zip BZip3" Type="string" Value="$(var.ShellExtId)" />
+            <RegistryValue Root="HKCR" Key="Directory\shellex\DragDropHandlers\7-Zip BZip3" Type="string" Value="$(var.ShellExtId)" />
+            <RegistryValue Root="HKCR" Key="Drive\shellex\DragDropHandlers\7-Zip BZip3" Type="string" Value="$(var.ShellExtId)" />
+            <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Shell Extensions\Approved" Name="$(var.ShellExtId)" Type="string" Value="7-Zip BZip3 Shell Extension" />
+          </Component>
+
+          <Component Id="AppPaths" Guid="{B0DA1B3D-4D8A-4A2B-9A8E-73E8F4E91E6A}" Win64="yes">
+            <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\7zFM.exe" Type="string" Value="[INSTALLDIR]7zFM.exe" KeyPath="yes" />
             <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\7zFM.exe" Name="Path" Type="string" Value="[INSTALLDIR]" />
           </Component>
 
@@ -96,6 +99,7 @@
       <ComponentRef Id="ShellExt64" />
       <ComponentRef Id="ShellExt32" />
       <ComponentRef Id="Registration" />
+      <ComponentRef Id="AppPaths" />
     </Feature>
   </Product>
 </Wix>

@@ -40,17 +40,17 @@
 
 #include "ContextMenu.h"
 
-static LPCTSTR const k_ShellExtName = TEXT("7-Zip Shell Extension");
+static LPCTSTR const k_ShellExtName = TEXT("7-Zip BZip3 Shell Extension");
 static LPCTSTR const k_Approved = TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved");
 
-// {23170F69-40C1-278A-1000-000100020000}
-static LPCTSTR const k_Clsid = TEXT("{23170F69-40C1-278A-1000-000100020000}");
+// {4C6B8933-560A-437F-B358-C4B0FCA654EF}
+static LPCTSTR const k_Clsid = TEXT("{4C6B8933-560A-437F-B358-C4B0FCA654EF}");
 
 Z7_DEFINE_GUID(CLSID_CZipContextMenu,
-    k_7zip_GUID_Data1,
-    k_7zip_GUID_Data2,
-    k_7zip_GUID_Data3_Common,
-    0x10, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00);
+    0x4c6b8933,
+    0x560a,
+    0x437f,
+    0xb3, 0x58, 0xc4, 0xb0, 0xfc, 0xa6, 0x54, 0xef);
 
 using namespace NWindows;
 
