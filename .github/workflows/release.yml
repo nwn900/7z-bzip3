@@ -95,10 +95,19 @@ jobs:
             }
           }
 
-          $appPathsText = & reg query 'HKLM\Software\Microsoft\Windows\CurrentVersion\App Paths\7zFM.exe'
-          if ($LASTEXITCODE -ne 0 -or $appPathsText -notmatch [regex]::Escape((Join-Path $installDir '7zFM.exe'))) {
+          $appPathTarget = Join-Path $installDir '7zFM.exe'
+          $appPaths64 = & reg query 'HKLM\Software\Microsoft\Windows\CurrentVersion\App Paths\7zFM.exe' /ve /reg:64
+          $ok64 = ($LASTEXITCODE -eq 0) -and ($appPaths64 -match [regex]::Escape($appPathTarget))
+          $appPaths32 = & reg query 'HKLM\Software\Microsoft\Windows\CurrentVersion\App Paths\7zFM.exe' /ve /reg:32
+          $ok32 = ($LASTEXITCODE -eq 0) -and ($appPaths32 -match [regex]::Escape($appPathTarget))
+          if (-not ($ok64 -or $ok32)) {
+            Write-Host 'App Paths 64-bit view:'
+            Write-Host ($appPaths64 -join "`n")
+            Write-Host 'App Paths 32-bit view:'
+            Write-Host ($appPaths32 -join "`n")
             throw 'App Paths registration missing or wrong.'
           }
+          Write-Host ("App Paths view: {0}" -f ($(if ($ok64) { '64-bit' } else { '32-bit' })))
 
           $shellExtText = & reg query 'HKCR\*\shellex\ContextMenuHandlers\7-Zip BZip3' /ve
           if ($LASTEXITCODE -ne 0 -or $shellExtText -notmatch '\{4C6B8933-560A-437F-B358-C4B0FCA654EF\}') {
