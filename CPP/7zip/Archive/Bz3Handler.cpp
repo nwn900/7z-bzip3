@@ -11,9 +11,16 @@
 #include "../Common/StreamUtils.h"
 
 #include "../Compress/CopyCoder.h"
+#include "../Common/FileStreams.h"
 
 #include "Common/DummyOutStream.h"
 #include "Common/HandlerOut.h"
+
+#include "../../Windows/FileDir.h"
+
+#include "Common/ItemNameUtils.h"
+
+#include "Tar/TarHandler.h"
 
 #include "../../../C/libbz3.h"
 
@@ -99,6 +106,7 @@ Z7_CLASS_IMP_CHandler_IInArchive_3(
   bool _needSeekToStart;
   bool _dataAfterEnd;
   bool _needMoreInput;
+  bool _tarMode;
 
   bool _packSize_Defined;
   bool _unpackSize_Defined;
@@ -111,6 +119,7 @@ Z7_CLASS_IMP_CHandler_IInArchive_3(
   UInt64 _numBlocks;
 
   CSingleMethodProps _props;
+  CObjectVector<NArchive::NTar::CItemEx> _tarItems;
 };
 
 static const Byte kProps[] =
@@ -154,13 +163,66 @@ Z7_COM7F_IMF(CHandler::GetArchiveProperty(PROPID propID, PROPVARIANT *value))
 
 Z7_COM7F_IMF(CHandler::GetNumberOfItems(UInt32 *numItems))
 {
-  *numItems = 1;
+  *numItems = _tarMode ? (UInt32)_tarItems.Size() : 1;
   return S_OK;
 }
 
-Z7_COM7F_IMF(CHandler::GetProperty(UInt32 /* index */, PROPID propID, PROPVARIANT *value))
+static void TarStringToUnicode(const AString &s, NCOM::CPropVariant &prop, bool toOs = false)
+{
+  UString dest;
+  ConvertUTF8ToUnicode(s, dest);
+  if (toOs)
+    NArchive::NItemName::ReplaceToOsSlashes_Remove_TailSlash(dest, true);
+  prop = dest;
+}
+
+Z7_COM7F_IMF(CHandler::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *value))
 {
   NCOM::CPropVariant prop;
+  if (_tarMode)
+  {
+    if (index >= _tarItems.Size())
+      return E_INVALIDARG;
+
+    const NArchive::NTar::CItemEx &item = _tarItems[index];
+    switch (propID)
+    {
+      case kpidPath: TarStringToUnicode(item.Name, prop, true); break;
+      case kpidIsDir: prop = item.IsDir(); break;
+      case kpidSize: prop = item.Get_UnpackSize(); break;
+      case kpidPackSize: prop = item.Get_PackSize_Aligned(); break;
+      case kpidPosixAttrib: prop = item.Get_Combined_Mode(); break;
+      case kpidUser:
+        if (!item.User.IsEmpty())
+          TarStringToUnicode(item.User, prop);
+        break;
+      case kpidGroup:
+        if (!item.Group.IsEmpty())
+          TarStringToUnicode(item.Group, prop);
+        break;
+      case kpidUserId: prop = (UInt32)item.UID; break;
+      case kpidGroupId: prop = (UInt32)item.GID; break;
+      case kpidSymLink:
+        if (item.Is_SymLink() && !item.LinkName.IsEmpty())
+          TarStringToUnicode(item.LinkName, prop);
+        break;
+      case kpidHardLink:
+        if (item.Is_HardLink() && !item.LinkName.IsEmpty())
+          TarStringToUnicode(item.LinkName, prop);
+        break;
+      case kpidDeviceMajor:
+        if (item.DeviceMajor_Defined)
+          prop = (UInt32)item.DeviceMajor;
+        break;
+      case kpidDeviceMinor:
+        if (item.DeviceMinor_Defined)
+          prop = (UInt32)item.DeviceMinor;
+        break;
+      default: break;
+    }
+    prop.Detach(value);
+    return S_OK;
+  }
   switch (propID)
   {
     case kpidPackSize: if (_packSize_Defined) prop = _packSize; break;
@@ -225,6 +287,7 @@ Z7_COM7F_IMF(CHandler::Close())
   _needSeekToStart = false;
   _dataAfterEnd = false;
   _needMoreInput = false;
+  _tarMode = false;
 
   _packSize_Defined = false;
   _unpackSize_Defined = false;
@@ -236,6 +299,7 @@ Z7_COM7F_IMF(CHandler::Close())
   _numStreams = 0;
   _numBlocks = 0;
 
+  _tarItems.Clear();
   _seqStream.Release();
   _stream.Release();
   return S_OK;
@@ -253,18 +317,6 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
   if (_packSize_Defined)
     RINOK(extractCallback->SetTotal(_packSize))
 
-  Int32 opRes = NExtract::NOperationResult::kDataError;
- {
-  CMyComPtr<ISequentialOutStream> realOutStream;
-  const Int32 askMode = testMode ?
-      NExtract::NAskMode::kTest :
-      NExtract::NAskMode::kExtract;
-  RINOK(extractCallback->GetStream(0, &realOutStream, askMode))
-  if (!testMode && !realOutStream)
-    return S_OK;
-
-  RINOK(extractCallback->PrepareOperation(askMode))
-
   if (_needSeekToStart)
   {
     if (!_stream)
@@ -274,10 +326,6 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
   else
     _needSeekToStart = true;
 
-  CMyComPtr2_Create<ISequentialOutStream, CDummyOutStream> outStream;
-  outStream->SetStream(realOutStream);
-  outStream->Init();
-
   CMyComPtr2_Create<ICompressProgressInfo, CLocalProgress> lps;
   lps->Init(extractCallback, true);
 
@@ -285,113 +333,183 @@ Z7_COM7F_IMF(CHandler::Extract(const UInt32 *indices, UInt32 numItems,
   _needMoreInput = false;
   _isArc = true;
 
+  Int32 opRes = NExtract::NOperationResult::kDataError;
+
   do
   {
-    Byte header[kHeaderSize];
-    size_t headerSize = kHeaderSize;
-    RINOK(ReadStream(_seqStream, header, &headerSize))
-    if (headerSize == 0 || IsArc_BZip3(header, headerSize) == k_IsArc_Res_NO)
+    NWindows::NFile::NDir::CTempFile tempFile;
     {
-      _isArc = false;
-      opRes = NExtract::NOperationResult::kIsNotArc;
-      break;
-    }
-    if (headerSize != kHeaderSize)
-    {
-      _needMoreInput = true;
-      opRes = NExtract::NOperationResult::kUnexpectedEnd;
-      break;
-    }
+      COutFileStream *tempOutSpec = new COutFileStream;
+      CMyComPtr<ISequentialOutStream> tempOut = tempOutSpec;
+      if (!tempFile.CreateRandomInTempFolder(FTEXT("7zb3"), &tempOutSpec->File))
+        return GetLastError_noZero_HRESULT();
 
-    const UInt32 blockSize = GetUi32(header + sizeof(kSignature));
-    const size_t bufferSize = bz3_bound((size_t)blockSize);
-    CByteBuffer buffer(bufferSize);
+      bool crcError = false;
+      bool dataError = false;
+      UInt64 packSize = 0;
+      UInt64 unpackSize = 0;
+      UInt64 numBlocks = 0;
 
-    CBz3StateHolder stateHolder;
-    stateHolder.State = bz3_new((Int32)blockSize);
-    if (!stateHolder.State)
-      return E_OUTOFMEMORY;
-
-    UInt64 packSize = kHeaderSize;
-    UInt64 unpackSize = 0;
-    UInt64 numBlocks = 0;
-    bool crcError = false;
-    bool dataError = false;
-
-    for (;;)
-    {
-      Byte blockHeader[8];
-      size_t processed = sizeof(blockHeader);
-      RINOK(ReadStream(_seqStream, blockHeader, &processed))
-      if (processed == 0)
-        break;
-      if (processed != sizeof(blockHeader))
       {
-        _needMoreInput = true;
-        break;
-      }
-
-      packSize += sizeof(blockHeader);
-
-      const UInt32 compressedSize = GetUi32(blockHeader);
-      const UInt32 origSize = GetUi32(blockHeader + 4);
-
-      if (origSize > blockSize || compressedSize > bufferSize)
-      {
-        dataError = true;
-        break;
-      }
-
-      size_t cur = compressedSize;
-      RINOK(ReadStream(_seqStream, (Byte *)buffer, &cur))
-      if (cur != compressedSize)
-      {
-        _needMoreInput = true;
-        break;
-      }
-
-      packSize += compressedSize;
-
-      if (bz3_decode_block(stateHolder.State, (Byte *)buffer, bufferSize,
-          (Int32)compressedSize, (Int32)origSize) < 0)
-      {
-        const int err = bz3_last_error(stateHolder.State);
-        if (err == BZ3_ERR_CRC)
-          crcError = true;
-        else if (err == BZ3_ERR_TRUNCATED_DATA)
+        Byte header[kHeaderSize];
+        size_t headerSize = kHeaderSize;
+        RINOK(ReadStream(_seqStream, header, &headerSize))
+        if (headerSize == 0 || IsArc_BZip3(header, headerSize) == k_IsArc_Res_NO)
+        {
+          _isArc = false;
+          opRes = NExtract::NOperationResult::kIsNotArc;
+          break;
+        }
+        if (headerSize != kHeaderSize)
+        {
           _needMoreInput = true;
-        else
-          dataError = true;
-        break;
+          opRes = NExtract::NOperationResult::kUnexpectedEnd;
+          break;
+        }
+
+        const UInt32 blockSize = GetUi32(header + sizeof(kSignature));
+        const size_t bufferSize = bz3_bound((size_t)blockSize);
+        CByteBuffer buffer(bufferSize);
+
+        CBz3StateHolder stateHolder;
+        stateHolder.State = bz3_new((Int32)blockSize);
+        if (!stateHolder.State)
+          return E_OUTOFMEMORY;
+
+        packSize = kHeaderSize;
+
+        for (;;)
+        {
+          Byte blockHeader[8];
+          size_t processed = sizeof(blockHeader);
+          RINOK(ReadStream(_seqStream, blockHeader, &processed))
+          if (processed == 0)
+            break;
+          if (processed != sizeof(blockHeader))
+          {
+            _needMoreInput = true;
+            break;
+          }
+
+          packSize += sizeof(blockHeader);
+
+          const UInt32 compressedSize = GetUi32(blockHeader);
+          const UInt32 origSize = GetUi32(blockHeader + 4);
+
+          if (origSize > blockSize || compressedSize > bufferSize)
+          {
+            dataError = true;
+            break;
+          }
+
+          size_t cur = compressedSize;
+          RINOK(ReadStream(_seqStream, (Byte *)buffer, &cur))
+          if (cur != compressedSize)
+          {
+            _needMoreInput = true;
+            break;
+          }
+
+          packSize += compressedSize;
+
+          if (bz3_decode_block(stateHolder.State, (Byte *)buffer, bufferSize,
+              (Int32)compressedSize, (Int32)origSize) < 0)
+          {
+            const int err = bz3_last_error(stateHolder.State);
+            if (err == BZ3_ERR_CRC)
+              crcError = true;
+            else if (err == BZ3_ERR_TRUNCATED_DATA)
+              _needMoreInput = true;
+            else
+              dataError = true;
+            break;
+          }
+
+          RINOK(WriteStream(tempOut, (const Byte *)buffer, origSize))
+
+          unpackSize += origSize;
+          numBlocks++;
+          lps.Interface()->SetRatioInfo(&packSize, &unpackSize);
+        }
       }
 
-      RINOK(WriteStream(outStream, (const Byte *)buffer, origSize))
+      _packSize = packSize;
+      _packSize_Defined = true;
+      _unpackSize = unpackSize;
+      _unpackSize_Defined = true;
+      _numStreams = 1;
+      _numStreams_Defined = true;
+      _numBlocks = numBlocks;
+      _numBlocks_Defined = true;
 
-      unpackSize += origSize;
-      numBlocks++;
-      lps.Interface()->SetRatioInfo(&packSize, &unpackSize);
+      if (_needMoreInput)
+        opRes = NExtract::NOperationResult::kUnexpectedEnd;
+      else if (crcError)
+        opRes = NExtract::NOperationResult::kCRCError;
+      else if (dataError)
+        opRes = NExtract::NOperationResult::kDataError;
+      else
+        opRes = NExtract::NOperationResult::kOK;
     }
 
-    _packSize = packSize;
-    _packSize_Defined = true;
-    _unpackSize = unpackSize;
-    _unpackSize_Defined = true;
-    _numStreams = 1;
-    _numStreams_Defined = true;
-    _numBlocks = numBlocks;
-    _numBlocks_Defined = true;
+    if (opRes == NExtract::NOperationResult::kIsNotArc)
+      return extractCallback->SetOperationResult(opRes);
 
-    if (_needMoreInput)
-      opRes = NExtract::NOperationResult::kUnexpectedEnd;
-    else if (crcError)
-      opRes = NExtract::NOperationResult::kCRCError;
-    else if (dataError)
-      opRes = NExtract::NOperationResult::kDataError;
+    CInFileStream *tempInSpec = new CInFileStream;
+    CMyComPtr<IInStream> tempIn = tempInSpec;
+    if (!tempInSpec->Open(tempFile.GetPath()))
+      return GetLastError_noZero_HRESULT();
+
+    if (opRes == NExtract::NOperationResult::kOK)
+    {
+      // Try tar handler on decoded bytes first. If it's not tar, fall back to raw copy.
+      RINOK(InStream_SeekToBegin(tempIn))
+      {
+        NArchive::NTar::CHandler *tarHandlerSpec = new NArchive::NTar::CHandler;
+        CMyComPtr<IInArchive> tarHandler = tarHandlerSpec;
+        const HRESULT tarOpenRes = tarHandler->Open(tempIn, NULL, NULL);
+        if (tarOpenRes == S_OK)
+        {
+          _tarItems = tarHandlerSpec->_items;
+          _tarMode = true;
+          const HRESULT tarExtractRes = tarHandler->Extract(NULL, (UInt32)(Int32)-1, testMode, extractCallback);
+          _tarMode = false;
+          _tarItems.Clear();
+          return tarExtractRes;
+        }
+      }
+
+      RINOK(InStream_SeekToBegin(tempIn))
+    }
     else
-      opRes = NExtract::NOperationResult::kOK;
+    {
+      RINOK(InStream_SeekToBegin(tempIn))
+    }
+
+    CMyComPtr<ISequentialOutStream> realOutStream;
+    const Int32 askMode = testMode ?
+        NExtract::NAskMode::kTest :
+        NExtract::NAskMode::kExtract;
+    RINOK(extractCallback->GetStream(0, &realOutStream, askMode))
+    if (!testMode && !realOutStream)
+      return S_OK;
+
+    RINOK(extractCallback->PrepareOperation(askMode))
+
+    CMyComPtr2_Create<ISequentialOutStream, CDummyOutStream> outStream;
+    outStream->SetStream(realOutStream);
+    outStream->Init();
+
+    CMyComPtr2_Create<ICompressProgressInfo, CLocalProgress> lps2;
+    lps2->Init(extractCallback, true);
+
+    HRESULT copyRes = NCompress::CopyStream(tempIn, outStream, lps2);
+    if (copyRes != S_OK && copyRes != S_FALSE)
+      return copyRes;
+    if (copyRes != S_OK)
+      opRes = NExtract::NOperationResult::kDataError;
   }
   while (false);
- }
   return extractCallback->SetOperationResult(opRes);
   COM_TRY_END
 }

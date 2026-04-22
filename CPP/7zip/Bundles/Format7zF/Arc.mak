@@ -38,6 +38,7 @@ WIN_OBJS = \
 7ZIP_COMMON_OBJS = \
   $O\CreateCoder.obj \
   $O\CWrappers.obj \
+  $O\FileStreams.obj \
   $O\InBuffer.obj \
   $O\InOutTempBuffer.obj \
   $O\FilterCoder.obj \

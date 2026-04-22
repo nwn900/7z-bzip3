@@ -50,7 +50,7 @@ New-Item -ItemType Directory -Force -Path $portableRoot | Out-Null
 
 $filesToStage = @(
   @{ Source = "CPP\7zip\Bundles\Format7zF\x64\7z.dll"; Target = "7z.dll" },
-  @{ Source = "CPP\7zip\UI\Console\x64\7z.exe"; Target = "7z.exe" },
+  @{ Source = "CPP\7zip\Bundles\Alone2\x64\7zz.exe"; Target = "7z.exe" },
   @{ Source = "CPP\7zip\UI\GUI\x64\7zG.exe"; Target = "7zG.exe" },
   @{ Source = "CPP\7zip\Bundles\Fm\x64\7zFM.exe"; Target = "7zFM.exe" },
   @{ Source = "CPP\7zip\UI\Explorer\x64\7-zip.dll"; Target = "7-zip.dll" },

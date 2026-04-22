@@ -56,14 +56,38 @@ try {
     throw "7z extraction failed."
   }
 
+  & $exe a sample.tar sample.txt -ttar -y | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "tar archive creation failed."
+  }
+
+  Copy-Item -LiteralPath "sample.tar" -Destination "payload.bin"
+
+  & $exe a sample.tar.bz3 payload.bin -tbzip3 -y | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "tar.bz3 archive creation failed."
+  }
+
+  & $exe x sample.tar.bz3 -oout-tarbz3 -y | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "tar.bz3 extraction failed."
+  }
+
   $bz3Text = (Get-Content -LiteralPath "out-bz3\sample" -Raw)
   $sevenZipText = (Get-Content -LiteralPath "out-7z\sample.txt" -Raw)
+  $tarBz3Text = (Get-Content -LiteralPath "out-tarbz3\sample.txt" -Raw)
 
   if ($bz3Text -ne "alpha bravo charlie`r`n") {
     throw "Unexpected bzip3 extraction content."
   }
   if ($sevenZipText -ne "alpha bravo charlie`r`n") {
     throw "Unexpected 7z extraction content."
+  }
+  if ($tarBz3Text -ne "alpha bravo charlie`r`n") {
+    throw "Unexpected tar.bz3 extraction content."
+  }
+  if (Test-Path -LiteralPath "out-tarbz3\sample.tar") {
+    throw "tar.bz3 extraction left tar wrapper behind."
   }
 }
 finally {

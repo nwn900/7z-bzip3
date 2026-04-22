@@ -150,12 +150,37 @@ jobs:
               throw 'Installed 7z extraction failed.'
             }
 
+            & $exe a sample.tar sample.txt -ttar -y | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Installed tar archive creation failed.'
+            }
+
+            Copy-Item -LiteralPath 'sample.tar' -Destination 'payload.bin'
+
+            & $exe a sample.tar.bz3 payload.bin -tbzip3 -y | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Installed tar.bz3 archive creation failed.'
+            }
+
+            & $exe x sample.tar.bz3 -oout-tarbz3 -y | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Installed tar.bz3 extraction failed.'
+            }
+
             if ((Get-Content -LiteralPath 'out-bz3\sample' -Raw) -ne "alpha bravo charlie`r`n") {
               throw 'Installed bzip3 extraction content mismatch.'
             }
 
             if ((Get-Content -LiteralPath 'out-7z\sample.txt' -Raw) -ne "alpha bravo charlie`r`n") {
               throw 'Installed 7z extraction content mismatch.'
+            }
+
+            if ((Get-Content -LiteralPath 'out-tarbz3\sample.txt' -Raw) -ne "alpha bravo charlie`r`n") {
+              throw 'Installed tar.bz3 extraction content mismatch.'
+            }
+
+            if (Test-Path -LiteralPath 'out-tarbz3\sample.tar') {
+              throw 'Installed tar.bz3 extraction left tar wrapper behind.'
             }
           }
           finally {
