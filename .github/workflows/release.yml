@@ -109,8 +109,13 @@ jobs:
           }
           Write-Host ("App Paths view: {0}" -f ($(if ($ok64) { '64-bit' } else { '32-bit' })))
 
-          $shellExtText = & reg query 'HKCR\*\shellex\ContextMenuHandlers\7-Zip BZip3' /ve
-          if ($LASTEXITCODE -ne 0 -or $shellExtText -notmatch '\{4C6B8933-560A-437F-B358-C4B0FCA654EF\}') {
+          $shellExtPath = 'Registry::HKEY_CLASSES_ROOT\*\shellex\ContextMenuHandlers\7-Zip BZip3'
+          if (-not (Test-Path -LiteralPath $shellExtPath)) {
+            throw 'Context menu handler registration missing or wrong.'
+          }
+          $shellExtValue = (Get-Item -LiteralPath $shellExtPath).GetValue('')
+          if ($shellExtValue -ne '{4C6B8933-560A-437F-B358-C4B0FCA654EF}') {
+            Write-Host "Context menu handler value: $shellExtValue"
             throw 'Context menu handler registration missing or wrong.'
           }
 
